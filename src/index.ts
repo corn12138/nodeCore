@@ -2,6 +2,7 @@
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './routes/auth';
+import menuItem from './routes/menu';
 import './config/database'; // 这里导入 database.ts 来初始化数据库连接
 import session from 'express-session'; //这是session会话的中间件
 import passport from 'passport';
@@ -29,7 +30,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session()); // 如果您使用会话
 app.use(express.json()); // Body parser middleware 解析JSON格式的请求体
-app.use('/api/auth', authRoutes); // 使用auth路由
+app.use('/api/auth', authRoutes,menuItem); // 使用auth menu路由
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
