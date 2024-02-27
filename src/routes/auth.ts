@@ -1,7 +1,7 @@
 // src/routes/auth.ts
 import express from 'express';
 import passport from '../config/passportConfig'
-import { loginUser, logoutUser ,reportUser} from '../controllers/authController';
+import { loginUser, logoutUser ,reportUser,csrfToken} from '../controllers/authController';
 import { authenticateToken } from "../middleware/authenticate";
 
 const router = express.Router();
@@ -15,4 +15,6 @@ router.post('/login', passport.authenticate('local', {
 router.post('/logout',authenticateToken,logoutUser);
 // 上报信息
 router.post('/report',authenticateToken,reportUser)
+// 获取csrf 
+router.get('/csrfs',csrfToken)
 export default router;

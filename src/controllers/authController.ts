@@ -8,6 +8,7 @@ import * as passport from 'passport';// 确保已经初始化了Passport
 import jwt from 'jsonwebtoken';
 // 定义一个接口
 export interface IUser {
+    [x: string]: any;
     username: string;
     email: string;
     last_login: string;
@@ -60,13 +61,18 @@ export const loginUser = async (req: Request, res: Response) => {
         // User matched, create JWT Payload 签发jwt
         const payload = {
             user: {
-                id: user.id
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                last_login: user.last_login,
             }
         };
 
         // Sign token
         jwt.sign(payload, 'yourSecretKey', { expiresIn: 360000 }, (err, token) => {
             if (err) throw err;
+            // 设置 HttpOnly Cookie
+            res.cookie('token', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 3600000 });
             // 成功后 返回 token和user 用户信息
             res.json({ success: true, status: 200, token: token, user: userForResponse, msg: '用户成功登录！！' });
         });
@@ -85,30 +91,36 @@ export const logoutUser = async (req: Request, res: Response) => {
     try {
         // 假设你的用户信息存储在req.user中，如果使用了如passport这样的中间件
         // const username = req.user?.username; 
-        // console.log(req,'请求数据')
-        // console.log(res,'响应数据')
-        const user = req.user as IUser;
-        const username = user.username
-
+        // const user = req.user as IUser;
+        const username = req.user.user.username
+        console.log(username, '请求数据')
+        // 记录用户的 IP 和当前时间
+        const userIp = req.ip;
+        const logoutTime = new Date();
         // 创建一条退出记录
         const logoutRecords = new LogoutRecord({
             username: username,
-            logoutTime: new Date() // 或者使用 Date.now()
+            logoutTime: logoutTime, // 或者使用 Date.now()
+            userIp: userIp // 
+
         });
 
         // 保存记录到数据库
         await logoutRecords.save();
-
+        // 清除会话信息（如果适用）
+        req.session.destroy(); // 如果您使用了会话
+        res.cookie('token', '', { httpOnly: true, expires: new Date(0) });
         // 发送响应到客户端
-        res.status(200).json({ message: 'Logged out successfully' });
+        res.status(200).json({ message: 'Logged out successfully', successed: true });
     } catch (error) {
         console.error('Logout error:', error);
-        res.status(500).send('Server error during logout');
+        res.status(500).json({ message: 'Server error during logout', successed: false });
     }
 };
 // 上报的接口
 export const reportUser = async (req: Request, res: Response) => {
     try {
+        console.log(req, '上报信息')
         // 
         const reportData = req.body;
         const user = req.user as IUser;
@@ -125,11 +137,18 @@ export const reportUser = async (req: Request, res: Response) => {
         // 保存记录到数据库
         await reportDatas.save();
         // 发送响应到客户端
-        res.status(200).json({ message: '上报信息成功'});
-        console.log(reportData, '上报信息')
+        res.status(200).json({ reportDataBool: true, message: '上报信息成功' });
+        // console.log(reportData, '上报信息')
 
     } catch (error) {
         console.error('Logout error:', error);
-        res.status(500).send('Server error during report');
+        res.status(500).json({ reportDataBool: true, message: 'Server error during report' });
     }
 };
+
+// 首次加载页面的时候便请求 csrf token 放在cookie里 以便后续使用
+export const csrfToken = async (req: Request, res: Response) => {
+    // csrf令牌 放在cookie里边
+    res.cookie('XSRF-TOKEN', req.csrfToken());
+    res.status(200).send('csrf token set is success')
+}
