@@ -5,7 +5,16 @@ import authRoutes from './routes/auth';
 import menuItem from './routes/menu';
 import './config/database'; // 这里导入 database.ts 来初始化数据库连接
 import session from 'express-session'; //这是session会话的中间件
-import passport from 'passport';
+import passport from 'passport';  //passport中间件
+import cookieParser from "cookie-parser";
+import csrf from "csurf";  //csrf 增加安全性
+
+// 创建类型声明文件 否则 csrfToken()报错
+declare module 'express-serve-static-core' {
+  interface Request {
+    csrfToken(): string;
+  }
+}
 // import passportConfig from './config/passportConfig'; // 更新为正确的路径
 const app = express();
 const corsOptions = {
@@ -30,7 +39,16 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session()); // 如果您使用会话
 app.use(express.json()); // Body parser middleware 解析JSON格式的请求体
-app.use('/api/auth', authRoutes,menuItem); // 使用auth menu路由
-
+app.use('/api/auth', authRoutes, menuItem); // 使用auth menu路由
+// 配置 cookie-parser
+app.use(cookieParser());
+// 配置CSRF 保护
+const csrfProtection = csrf({ cookie: true });  //cookie中读取这个 csrf
+// 应用csrf去保护所有的路由
+app.use(csrfProtection);
+app.use((req, res, next) => {
+  res.setHeader('X-CSRF-Token', req.csrfToken());
+  next();
+});
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server started on port ${PORT}`));

@@ -1,7 +1,8 @@
 // src/controllers/authController.ts
 import { Request, Response } from 'express';
 import User from '../models/user';
-import LogoutRecord from '../models/logoutRecord'
+import LogoutRecord from '../models/logoutRecord'  //退出登录信息 记录到MongoDB
+import reportRecord from "../models/reportRecord"; //上报信息
 import bcrypt from 'bcryptjs';
 import * as passport from 'passport';// 确保已经初始化了Passport
 import jwt from 'jsonwebtoken';
@@ -18,6 +19,8 @@ declare global {
     namespace Express {
         interface Request {
             user?: IUser; // 或者更具体的类型，如果您知道的话
+            timestamp?: Date,
+            userAgent?: any
         }
     }
 }
@@ -31,9 +34,9 @@ export const loginUser = async (req: Request, res: Response) => {
         // }
         // 假设通过Passport认证的用户已存储在req.user中
         const user = req.user as IUser;
-        console.log(user,'userssssss')
+        console.log(user, 'userssssss')
         if (!user) {
-            return res.status(400).json({ success: false, status: 400, message: 'Authentication failed' });
+            return res.status(400).json({ success: false, status: 401, message: 'Authentication failed' });
         }
         // Check if password is correct
         // 这个是bcrypt加密的哈希密码的比对的
@@ -64,7 +67,8 @@ export const loginUser = async (req: Request, res: Response) => {
         // Sign token
         jwt.sign(payload, 'yourSecretKey', { expiresIn: 360000 }, (err, token) => {
             if (err) throw err;
-            res.json({ success: true, status: 200, token: token, user: userForResponse });
+            // 成功后 返回 token和user 用户信息
+            res.json({ success: true, status: 200, token: token, user: userForResponse, msg: '用户成功登录！！' });
         });
         // passport的中间件
         // passport.authenticate('local', ( user, info,err) => {
@@ -81,22 +85,51 @@ export const logoutUser = async (req: Request, res: Response) => {
     try {
         // 假设你的用户信息存储在req.user中，如果使用了如passport这样的中间件
         // const username = req.user?.username; 
+        // console.log(req,'请求数据')
+        // console.log(res,'响应数据')
         const user = req.user as IUser;
         const username = user.username
 
         // 创建一条退出记录
-        const logoutRecord = new LogoutRecord({
+        const logoutRecords = new LogoutRecord({
             username: username,
             logoutTime: new Date() // 或者使用 Date.now()
         });
 
         // 保存记录到数据库
-        await logoutRecord.save();
+        await logoutRecords.save();
 
         // 发送响应到客户端
         res.status(200).json({ message: 'Logged out successfully' });
     } catch (error) {
         console.error('Logout error:', error);
         res.status(500).send('Server error during logout');
+    }
+};
+// 上报的接口
+export const reportUser = async (req: Request, res: Response) => {
+    try {
+        // 
+        const reportData = req.body;
+        const user = req.user as IUser;
+        const username = user.username
+        const timestamp = req.body ? req.body.timestamp : req.timestamp
+        const userAgent = req.body ? req.body.userAgent : req.userAgent
+        // 创建一条退出记录
+        const reportDatas = new reportRecord({
+            username: username,
+            timestamp: timestamp,
+            userAgent: userAgent
+        });
+
+        // 保存记录到数据库
+        await reportDatas.save();
+        // 发送响应到客户端
+        res.status(200).json({ message: '上报信息成功'});
+        console.log(reportData, '上报信息')
+
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).send('Server error during report');
     }
 };

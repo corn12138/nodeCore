@@ -1,3 +1,4 @@
+// 退出登录记载到数据库里
 import mongoose,{Schema,Document} from "mongoose";
 export interface ILogoutRecord extends Document {
 username:string,
