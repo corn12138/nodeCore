@@ -3,9 +3,11 @@ import { Request, Response } from 'express';
 import User from '../models/user';
 import LogoutRecord from '../models/logoutRecord'  //退出登录信息 记录到MongoDB
 import reportRecord from "../models/reportRecord"; //上报信息
+import { KLineData } from "../models/chartData" //获取k线图的 MongoDB的连接
 import bcrypt from 'bcryptjs';
 import * as passport from 'passport';// 确保已经初始化了Passport
 import jwt from 'jsonwebtoken';
+import { getKLineChartData } from '../services/chartService';
 // 定义一个接口
 export interface IUser {
     [x: string]: any;
@@ -124,7 +126,7 @@ export const reportUser = async (req: Request, res: Response) => {
         // 
         const reportData = req.body;
         const user = req.user as IUser;
-        const username = user.username
+        const username = user.user.username
         const timestamp = req.body ? req.body.timestamp : req.timestamp
         const userAgent = req.body ? req.body.userAgent : req.userAgent
         // 创建一条退出记录
@@ -148,7 +150,21 @@ export const reportUser = async (req: Request, res: Response) => {
 
 // 首次加载页面的时候便请求 csrf token 放在cookie里 以便后续使用
 export const csrfToken = async (req: Request, res: Response) => {
-    // csrf令牌 放在cookie里边
-    res.cookie('XSRF-TOKEN', req.csrfToken());
-    res.status(200).send('csrf token set is success')
+    try {
+        // csrf令牌 放在cookie里边
+        res.cookie('XSRF-TOKEN', req.csrfToken());
+        res.status(200).json({ successed: true, message: 'csrf token set is success' })
+    } catch (error) {
+        res.status(500).json({ successed: false, message: `error:${error}` });
+    }
+
+};
+// 获取图表的接口
+export const getChartData = async (req: Request, res: Response) => {
+    try {
+        const items = await getKLineChartData();
+        res.status(200).json({ successed: true, items: items, status: 200 });
+    } catch (error) {
+        res.status(500).json({ successed: false, message: error.message, status: 500 });
+    }
 }

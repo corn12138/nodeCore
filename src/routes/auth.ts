@@ -1,7 +1,7 @@
 // src/routes/auth.ts
 import express from 'express';
 import passport from '../config/passportConfig'
-import { loginUser, logoutUser ,reportUser,csrfToken} from '../controllers/authController';
+import { loginUser, logoutUser ,reportUser,csrfToken,getChartData} from '../controllers/authController';
 import { authenticateToken } from "../middleware/authenticate";
 
 const router = express.Router();
@@ -16,5 +16,7 @@ router.post('/logout',authenticateToken,logoutUser);
 // 上报信息
 router.post('/report',authenticateToken,reportUser)
 // 获取csrf 
-router.get('/csrfs',csrfToken)
+router.get('/csrfs',csrfToken);
+//获取 k线图的接口
+router.post('/getChartData',authenticateToken,getChartData)
 export default router;

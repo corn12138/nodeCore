@@ -1,3 +1,5 @@
+// process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 // src/index.ts
 import express from 'express';
 import cors from 'cors';
@@ -9,7 +11,9 @@ import session, { Session, SessionData } from 'express-session'; //这是session
 import passport from 'passport';  //passport中间件
 import cookieParser from "cookie-parser";
 import csrf from "csurf";  //csrf 增加安全性
-
+// 下边的两个 导入是为websocket做的
+import http from 'http';
+import { setupWebSocketServer } from './websocket/index';
 // 创建类型声明文件 否则 csrfToken()、session报错
 declare module 'express-serve-static-core' {
   interface Request {
@@ -48,13 +52,15 @@ app.use(cookieParser());
 // // 配置CSRF 保护
 const csrfProtection = csrf({ cookie: true });  //cookie中读取这个 csrf
 // // 应用csrf去保护所有的路由
-// app.use(csrfProtection);
-// app.use((req, res, next) => {
-//   res.setHeader('X-CSRF-Token', req.csrfToken());
-//   next();
-// });
+app.use(csrfProtection);
 
 app.use('/api/auth', authRoutes, menuItem); // 使用auth menu路由
 app.use('/api/auth',csrfProtection, getCsrfs); 
+
+// websocket
+const server = http.createServer(app);
+// 将WebSocketio服务器附加到HTTP服务器
+const io = setupWebSocketServer(server);
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+// 使用创建的HTTP服务器实例来监听端口
+server.listen(PORT, () => console.log(`Server started on port ${PORT}`));
