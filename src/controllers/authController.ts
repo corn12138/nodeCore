@@ -1,5 +1,7 @@
 // src/controllers/authController.ts
 import { Request, Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import User from '../models/user';
 import LogoutRecord from '../models/logoutRecord'  //退出登录信息 记录到MongoDB
 import reportRecord from "../models/reportRecord"; //上报信息
@@ -8,6 +10,8 @@ import bcrypt from 'bcryptjs';
 import * as passport from 'passport';// 确保已经初始化了Passport
 import jwt from 'jsonwebtoken';
 import { getKLineChartData } from '../services/chartService';
+import UploadSessionService from '../services/UploadSessionService'; //关于文件上传的会话储存
+
 // 定义一个接口
 export interface IUser {
     [x: string]: any;
@@ -164,6 +168,36 @@ export const getChartData = async (req: Request, res: Response) => {
     try {
         const items = await getKLineChartData();
         res.status(200).json({ successed: true, items: items, status: 200 });
+    } catch (error) {
+        res.status(500).json({ successed: false, message: error.message, status: 500 });
+    }
+}
+// 处理上传文件的
+export const uploadFiles = async (req: Request, res: Response) => {
+    // UploadSessionService
+    try {
+        const { chunkIndex, totalChunks, fileId } = req.body;
+        // 存储每个文件块到临时的目录里边
+        const tempDir = path.join(__dirname, '..', 'temp', fileId);
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+        const chunkPath = path.join(tempDir, chunkIndex.toString());
+        fs.writeFileSync(chunkPath, req.file.buffer);
+        // 更新上传会话状态
+        const session = await UploadSessionService.updateSession(fileId, chunkIndex, totalChunks);
+        // 若是所有块都上传了，进行文件的合并
+        if (session.completedChunks.length === totalChunks) {
+            const finalFilePath = path.join(__dirname, '..', 'uploads', fileId);
+            for (let i = 0; i < totalChunks; i++) {
+                const chunk = fs.readFileSync(path.join(tempDir, i.toString()))
+                fs.appendFileSync(finalFilePath, chunk);
+                fs.unlinkSync(path.join(tempDir, i.toString())); //删除已合并的块
+            }
+            fs.rmdirSync(tempDir);//清理临时的目录
+            await UploadSessionService.clearSession(fileId); //清除会话
+            res.status(200).json({ succcessed: true, fileId: fileId, status: 200 })
+        }
     } catch (error) {
         res.status(500).json({ successed: false, message: error.message, status: 500 });
     }
