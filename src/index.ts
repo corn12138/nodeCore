@@ -23,12 +23,25 @@ declare module 'express-serve-static-core' {
 }
 // import passportConfig from './config/passportConfig'; // 更新为正确的路径
 const app = express();
-const corsOptions = {
-  origin: 'http://localhost:3000', // 替换为您的前端域名
-  credentials: true, // 允许跨域请求携带凭证（允许发送cookies）
-};
+// 允许 前端 请求的地址
+const allowlist = ['http://localhost:3000', 'http://localhost:8089']
+const corsOptionsDelegate = (req, callback) => {
+  let corsOptions;
+  if (allowlist.indexOf(req.header('Origin')) !== -1) {
+    corsOptions = {
+      origin: true, credentials: true // 允许跨域请求携带凭证（允许发送cookies）
+
+    }
+  } else {
+    corsOptions = {
+      origin: false, credentials: true// 允许跨域请求携带凭证（允许发送cookies） 
+
+    }
+  }
+  callback(null, corsOptions)
+}
 // 这个appuse 在所有的use之前
-app.use(cors(corsOptions)) //这个设置只接受来自前端 http://localhost:3000的访问
+app.use(cors(corsOptionsDelegate)) //这个设置只接受来自前端 http://localhost:3000的访问
 // 设置express-session中间件
 app.use(session({
   secret: 'yourSecretKey', // 替换为一个随机密钥（）
@@ -39,7 +52,6 @@ app.use(session({
   },
   httpOnly: true, //防止客户端脚本访问cookie，增加安全性
   secure: false, //设置secure: true，这样cookie只会通过HTTPS传输
-
 }));
 
 // 初始化Passport--一般在 上边的session之后立即调用
@@ -55,7 +67,7 @@ const csrfProtection = csrf({ cookie: true });  //cookie中读取这个 csrf
 app.use(csrfProtection);
 
 app.use('/api/auth', authRoutes, menuItem); // 使用auth menu路由
-app.use('/api/auth',csrfProtection, getCsrfs); 
+app.use('/api/auth', csrfProtection, getCsrfs);
 
 // websocket
 const server = http.createServer(app);
